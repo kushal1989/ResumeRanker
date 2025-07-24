@@ -1,4 +1,4 @@
-# Resume-Analyser
+# Resume-Ranker
 In the contemporary professional landscape, resume analysis plays a pivotal role in determining
 one&#39;s prospects. This project, a Resume Analyzer, offers a comprehensive platform designed to
 streamline the evaluation process of resumes.
