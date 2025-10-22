@@ -1,8 +1,10 @@
 streamlit
-nltk
-pandas
-numpy
-scikit-learn
-joblib
-spacy
 pyresparser
+nltk
+spacy
+pdfminer3
+pandas
+plotly
+pymysql
+streamlit-tags
+Pillow
