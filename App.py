@@ -1,11 +1,46 @@
 import streamlit as st
 import nltk
+import os
+
+# ============================================
+# 🧠 FIX 1: Ensure all NLTK data BEFORE pyresparser import
+# ============================================
+nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
+if not os.path.exists(nltk_data_dir):
+    os.mkdir(nltk_data_dir)
+nltk.data.path.append(nltk_data_dir)
+
+nltk_packages = [
+    'stopwords', 'punkt', 'wordnet',
+    'averaged_perceptron_tagger', 'maxent_ne_chunker', 'words'
+]
+for pkg in nltk_packages:
+    try:
+        nltk.data.find(f'corpora/{pkg}')
+    except LookupError:
+        nltk.download(pkg, download_dir=nltk_data_dir)
+
+# ✅ Import pyresparser *after* NLTK data is ready
+from pyresparser import ResumeParser
+
+# ============================================
+# 🧠 FIX 2: Ensure spaCy model available
+# ============================================
 import spacy
+try:
+    nlp = spacy.load('en_core_web_sm')
+except OSError:
+    from spacy.cli import download
+    download('en_core_web_sm')
+    nlp = spacy.load('en_core_web_sm')
+
+# ============================================
+# 📚 Other imports
+# ============================================
 import pandas as pd
 import base64
 import time, datetime
-import io, random, os
-from pyresparser import ResumeParser
+import io, random
 from pdfminer3.layout import LAParams
 from pdfminer3.pdfpage import PDFPage
 from pdfminer3.pdfinterp import PDFResourceManager
@@ -18,37 +53,7 @@ from Courses import ds_course, web_course, android_course, ios_course, uiux_cour
 import plotly.express as px
 
 # ============================================
-# 🧠 FIX 1: Ensure all NLTK data is available
-# ============================================
-nltk_data_dir = os.path.join(os.getcwd(), 'nltk_data')
-if not os.path.exists(nltk_data_dir):
-    os.mkdir(nltk_data_dir)
-
-nltk.data.path.append(nltk_data_dir)
-
-nltk_packages = [
-    'stopwords', 'punkt', 'wordnet',
-    'averaged_perceptron_tagger', 'maxent_ne_chunker', 'words'
-]
-
-for pkg in nltk_packages:
-    try:
-        nltk.data.find(f'corpora/{pkg}')
-    except LookupError:
-        nltk.download(pkg, download_dir=nltk_data_dir)
-
-# ============================================
-# 🧠 FIX 2: Ensure SpaCy model is available
-# ============================================
-try:
-    nlp = spacy.load('en_core_web_sm')
-except OSError:
-    from spacy.cli import download
-    download('en_core_web_sm')
-    nlp = spacy.load('en_core_web_sm')
-
-# ============================================
-# 📽 Helper Functions
+# 📘 Helper Functions
 # ============================================
 def fetch_yt_video(link):
     return link
