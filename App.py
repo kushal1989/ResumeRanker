@@ -24,15 +24,14 @@ for pkg in nltk_packages:
 from pyresparser import ResumeParser
 
 # ============================================
-# 🧠 FIX 2: Ensure spaCy model available
+# 🧠 FIX 2: Use preinstalled spaCy model (avoid runtime install)
 # ============================================
 import spacy
 try:
-    nlp = spacy.load('en_core_web_sm')
-except OSError:
-    from spacy.cli import download
-    download('en_core_web_sm')
-    nlp = spacy.load('en_core_web_sm')
+    nlp = spacy.load("en_core_web_sm")
+except Exception:
+    st.warning("⚠️ spaCy model 'en_core_web_sm' not found. Please ensure it’s installed via requirements.txt.")
+    nlp = None
 
 # ============================================
 # 📚 Other imports
@@ -43,8 +42,7 @@ import time, datetime
 import io, random
 from pdfminer3.layout import LAParams
 from pdfminer3.pdfpage import PDFPage
-from pdfminer3.pdfinterp import PDFResourceManager
-from pdfminer3.pdfinterp import PDFPageInterpreter
+from pdfminer3.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer3.converter import TextConverter
 from streamlit_tags import st_tags
 from PIL import Image
@@ -55,10 +53,6 @@ import plotly.express as px
 # ============================================
 # 📘 Helper Functions
 # ============================================
-def fetch_yt_video(link):
-    return link
-
-
 def get_table_download_link(df, filename, text):
     """Generates a link allowing the data in a given panda dataframe to be downloaded"""
     csv = df.to_csv(index=False)
@@ -85,12 +79,12 @@ def pdf_reader(file):
 def show_pdf(file_path):
     with open(file_path, "rb") as f:
         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000" type="application/pdf"></iframe>'
+    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
 
 def course_recommender(course_list):
-    st.subheader("Courses & Certificates Recommendations")
+    st.subheader("🎯 Course & Certificate Recommendations")
     rec_course = []
     no_of_reco = st.slider('Choose Number of Course Recommendations:', 1, 10, 5)
     random.shuffle(course_list)
@@ -125,23 +119,20 @@ st.set_page_config(
     page_icon='./Logo/SRA_Logo.ico',
 )
 
-
 def run():
-    st.title("Smart Resume Analyser")
-
-    st.sidebar.markdown("# Choose User")
+    st.title("🤖 Smart Resume Analyzer")
+    st.sidebar.markdown("## Choose User")
     activities = ["Normal User", "Admin"]
     choice = st.sidebar.selectbox("Choose the user type:", activities)
+
     img = Image.open('./Logo/SRA_Logo.png')
     img = img.resize((250, 250))
     st.image(img)
 
-    # Create the DB
-    db_sql = """CREATE DATABASE IF NOT EXISTS SRA;"""
-    cursor.execute(db_sql)
-    connection.select_db("sra")
+    # Create DB & Table
+    cursor.execute("CREATE DATABASE IF NOT EXISTS SRA;")
+    connection.select_db("SRA")
 
-    # Create table
     DB_table_name = 'user_data'
     table_sql = """CREATE TABLE IF NOT EXISTS """ + DB_table_name + """(
                      ID INT NOT NULL AUTO_INCREMENT,
@@ -164,44 +155,48 @@ def run():
     if choice == 'Normal User':
         pdf_file = st.file_uploader("Upload your Resume", type=["pdf"])
         if pdf_file is not None:
-            st.spinner('Uploading your Resume....')
-            time.sleep(3)
-            save_image_path = './Uploaded_Resumes/' + pdf_file.name
-            with open(save_image_path, "wb") as f:
-                f.write(pdf_file.getbuffer())
+            with st.spinner('📄 Uploading your Resume...'):
+                time.sleep(2)
+                save_image_path = './Uploaded_Resumes/' + pdf_file.name
+                os.makedirs('./Uploaded_Resumes', exist_ok=True)
+                with open(save_image_path, "wb") as f:
+                    f.write(pdf_file.getbuffer())
+
             show_pdf(save_image_path)
             resume_data = ResumeParser(save_image_path).get_extracted_data()
-            time.sleep(3)
+            time.sleep(2)
 
             if resume_data:
                 resume_text = pdf_reader(save_image_path)
-                st.header("Resume Analysis")
-                st.success("Hello " + resume_data['name'])
+                st.header("📋 Resume Analysis")
+                st.success("Hello " + resume_data.get('name', 'User'))
 
                 try:
-                    st.text('Name: ' + resume_data['name'])
-                    st.text('Email: ' + resume_data['email'])
-                    st.text('Contact: ' + resume_data['mobile_number'])
-                    st.text('Resume pages: ' + str(resume_data['no_of_pages']))
+                    st.text('📧 Email: ' + str(resume_data.get('email', '')))
+                    st.text('📞 Contact: ' + str(resume_data.get('mobile_number', '')))
+                    st.text('📄 Resume pages: ' + str(resume_data.get('no_of_pages', '')))
                 except:
                     pass
 
                 # Candidate level
                 cand_level = ''
-                if resume_data['no_of_pages'] == 1:
+                pages = resume_data.get('no_of_pages', 1)
+                if pages == 1:
                     cand_level = "Fresher"
-                    st.markdown("<h4 style='color:#d73b5c;'>You are at Fresher level.</h4>", unsafe_allow_html=True)
-                elif resume_data['no_of_pages'] == 2:
+                    st.markdown("<h4 style='color:#d73b5c;'>You are a Fresher!</h4>", unsafe_allow_html=True)
+                elif pages == 2:
                     cand_level = "Intermediate"
                     st.markdown("<h4 style='color:#1ed760;'>You are at Intermediate level!</h4>", unsafe_allow_html=True)
                 else:
                     cand_level = "Experienced"
-                    st.markdown("<h4 style='color:#fba171;'>You are at Experienced level!</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#fba171;'>You are Experienced!</h4>", unsafe_allow_html=True)
 
                 # Skills Recommendation
-                st.subheader("Skills Recommendation")
-                keywords = st_tags(label='### Skills that you have', text='See our skills recommendation',
-                                   value=resume_data['skills'], key='1')
+                st.subheader("🧩 Skills Recommendation")
+                keywords = st_tags(label='### Skills Detected from Resume',
+                                   text='See our skill recommendations',
+                                   value=resume_data.get('skills', []),
+                                   key='1')
 
                 # Keyword lists
                 ds_keyword = ['tensorflow', 'keras', 'pytorch', 'machine learning', 'deep learning', 'flask', 'streamlit']
@@ -213,42 +208,42 @@ def run():
 
                 recommended_skills, reco_field, rec_course = [], '', ''
 
-                for i in resume_data['skills']:
+                for i in resume_data.get('skills', []):
                     skill = i.lower()
                     if skill in ds_keyword:
                         reco_field = 'Data Science'
-                        st.success("Your resume suits Data Science Jobs.")
-                        recommended_skills = ['Data Visualization', 'Predictive Analysis', 'TensorFlow', 'Pytorch']
+                        st.success("🎯 Suitable Field: Data Science")
+                        recommended_skills = ['TensorFlow', 'Keras', 'Pytorch']
                         rec_course = course_recommender(ds_course)
                         break
                     elif skill in web_keyword:
                         reco_field = 'Web Development'
-                        st.success("Your resume suits Web Development Jobs.")
-                        recommended_skills = ['React', 'Django', 'Node.js', 'Flask']
+                        st.success("🎯 Suitable Field: Web Development")
+                        recommended_skills = ['Django', 'Flask', 'React']
                         rec_course = course_recommender(web_course)
                         break
                     elif skill in android_keyword:
                         reco_field = 'Android Development'
-                        st.success("Your resume suits Android App Development Jobs.")
-                        recommended_skills = ['Flutter', 'Kotlin', 'XML']
+                        st.success("🎯 Suitable Field: Android Development")
+                        recommended_skills = ['Kotlin', 'Flutter']
                         rec_course = course_recommender(android_course)
                         break
                     elif skill in ios_keyword:
                         reco_field = 'iOS Development'
-                        st.success("Your resume suits iOS App Development Jobs.")
-                        recommended_skills = ['Swift', 'Xcode', 'Cocoa']
+                        st.success("🎯 Suitable Field: iOS Development")
+                        recommended_skills = ['Swift', 'Xcode']
                         rec_course = course_recommender(ios_course)
                         break
                     elif skill in uiux_keyword:
                         reco_field = 'UI/UX Design'
-                        st.success("Your resume suits UI/UX Design Jobs.")
-                        recommended_skills = ['Figma', 'Adobe XD', 'Wireframing']
+                        st.success("🎯 Suitable Field: UI/UX Design")
+                        recommended_skills = ['Figma', 'Adobe XD']
                         rec_course = course_recommender(uiux_course)
                         break
                     elif skill in artificial_keyword:
                         reco_field = 'Artificial Intelligence'
-                        st.success("Your resume suits Artificial Intelligence Jobs.")
-                        recommended_skills = ['Deep Learning', 'NLP', 'Machine Learning']
+                        st.success("🎯 Suitable Field: Artificial Intelligence")
+                        recommended_skills = ['Deep Learning', 'NLP']
                         rec_course = course_recommender(artificial_course)
                         break
 
@@ -256,9 +251,9 @@ def run():
                 ts = time.time()
                 timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
 
-                insert_data(resume_data['name'], resume_data['email'], '80', timestamp,
-                            str(resume_data['no_of_pages']), reco_field, cand_level, str(resume_data['skills']),
-                            str(recommended_skills), str(rec_course))
+                insert_data(resume_data.get('name', 'User'), resume_data.get('email', ''),
+                            '80', timestamp, str(pages), reco_field, cand_level,
+                            str(resume_data.get('skills', [])), str(recommended_skills), str(rec_course))
 
                 st.balloons()
 
@@ -279,17 +274,14 @@ def run():
                     'Predicted Field', 'User Level', 'Actual Skills', 'Recommended Skills', 'Recommended Course'
                 ])
                 st.dataframe(df)
-                st.markdown(get_table_download_link(df, 'User_Data.csv', 'Download Report'), unsafe_allow_html=True)
+                st.markdown(get_table_download_link(df, 'User_Data.csv', '📥 Download Report'), unsafe_allow_html=True)
 
-                # Pie charts
                 plot_data = pd.read_sql('SELECT * FROM user_data;', connection)
-                st.subheader("Predicted Field Distribution")
-                fig1 = px.pie(plot_data, names='Predicted_Field', title='Predicted Field by Skillset')
-                st.plotly_chart(fig1)
+                st.subheader("📊 Predicted Field Distribution")
+                st.plotly_chart(px.pie(plot_data, names='Predicted_Field', title='Predicted Field by Skillset'))
 
-                st.subheader("User Experience Level Distribution")
-                fig2 = px.pie(plot_data, names='User_level', title="User Experience Level")
-                st.plotly_chart(fig2)
+                st.subheader("📊 User Experience Level Distribution")
+                st.plotly_chart(px.pie(plot_data, names='User_level', title="User Experience Level"))
             else:
                 st.error("Invalid Admin Credentials!")
 
@@ -297,4 +289,5 @@ def run():
 # ============================================
 # 🏁 Run the app
 # ============================================
-run()
+if __name__ == "__main__":
+    run()
